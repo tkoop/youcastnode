@@ -20,9 +20,21 @@ async function downloadYtDlp() {
 
     const targetPath = path.join(BIN_DIR, filename);
 
+    if (!fs.existsSync(BIN_DIR)) {
+        fs.mkdirSync(BIN_DIR, { recursive: true });
+    }
+
     if (fs.existsSync(targetPath)) {
-        console.log('yt-dlp already exists.');
-        return targetPath;
+        const stats = fs.statSync(targetPath);
+        const ageInDays = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
+        
+        if (ageInDays < 7) {
+            console.log('yt-dlp exists and is recent.');
+            return targetPath;
+        }
+        console.log('yt-dlp is older than 7 days, checking for updates...');
+        // We could just delete and redownload
+        fs.unlinkSync(targetPath);
     }
 
     console.log(`Downloading yt-dlp from ${url}...`);

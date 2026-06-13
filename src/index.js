@@ -157,27 +157,101 @@ app.get('/feeds/:id/episodes/:episodeId/audio', async (req, res) => {
     const ytDlpPath = path.join(binManager.BIN_DIR, os.platform() === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
     const finalYtDlpPath = fs.existsSync(ytDlpPath) ? ytDlpPath : 'yt-dlp';
     
-    let args = ['-f', 'ba/b', '--no-playlist', '--no-warnings', '--extractor-args', 'youtube:player_client=android,web', '-o', '-', episode.youtube_url];
+    if (!fs.existsSync(ytDlpPath) && finalYtDlpPath === 'yt-dlp') {
+        // Try to download if not present
+        try {
+            await binManager.downloadYtDlp();
+        } catch (e) {
+            console.error('Failed to download yt-dlp on demand:', e);
+        }
+    }
+
+    // Improved arguments to bypass some YouTube restrictions
+    let args = [
+        '--quiet',
+        '--no-progress',
+        '-f', 'ba/b',
+        '--no-playlist',
+        '--no-warnings',
+        '--extractor-args', 'youtube:player_client=ios,android,web',
+        '--no-check-certificates',
+        '--prefer-free-formats',
+        '-o', '-',
+        episode.youtube_url
+    ];
     
-    console.log(`Starting stream for ${episode.youtube_url}`);
+    console.log(`Executing: ${finalYtDlpPath} ${args.join(' ')}`);
     
-    res.set({
+    // Explicitly send headers to start the response
+    res.writeHead(200, {
         'Content-Type': 'audio/mpeg',
         'Content-Disposition': `attachment; filename="episode_${episode.id}.mp3"`,
         'X-Accel-Buffering': 'no',
-        'Cache-Control': 'no-cache, must-revalidate'
+        'Cache-Control': 'no-cache, must-revalidate',
+        'Connection': 'keep-alive'
     });
 
     const ytDlp = spawn(finalYtDlpPath, args);
-    const ffmpeg = spawn('ffmpeg', ['-i', 'pipe:0', '-f', 'mp3', '-b:a', '128k', '-map', '0:a', '-']);
+    const ffmpeg = spawn('ffmpeg', [
+        '-i', 'pipe:0',
+        '-f', 'mp3',
+        '-b:a', '128k',
+        '-acodec', 'libmp3lame',
+        '-map', '0:a',
+        '-'
+    ]);
 
     ytDlp.stdout.pipe(ffmpeg.stdin);
     ffmpeg.stdout.pipe(res);
 
-    ytDlp.stderr.on('data', (data) => console.error(`yt-dlp: ${data}`));
-    ffmpeg.stderr.on('data', (data) => console.error(`ffmpeg: ${data}`));
+    // Draining stderr to prevent blocking
+    let ytDlpError = '';
+    ytDlp.stderr.on('data', (data) => {
+        const msg = data.toString();
+        ytDlpError += msg;
+        if (msg.toLowerCase().includes('error')) {
+            console.error(`yt-dlp error: ${msg}`);
+        }
+    });
+
+    let ffmpegError = '';
+    ffmpeg.stderr.on('data', (data) => {
+        const msg = data.toString();
+        ffmpegError += msg;
+        // Optional: log ffmpeg start info
+        if (msg.includes('Output #0')) {
+            console.log('ffmpeg started transcoding');
+        }
+    });
+
+    ytDlp.on('error', (err) => {
+        console.error('yt-dlp process error:', err);
+        ffmpeg.kill();
+        if (!res.writableEnded) res.end();
+    });
+
+    ffmpeg.on('error', (err) => {
+        console.error('ffmpeg process error:', err);
+        ytDlp.kill();
+        if (!res.writableEnded) res.end();
+    });
+
+    ytDlp.on('close', (code) => {
+        if (code !== 0 && code !== null) {
+            console.error(`yt-dlp closed with code ${code}. Last error: ${ytDlpError}`);
+        }
+        ffmpeg.stdin.end();
+    });
+
+    ffmpeg.on('close', (code) => {
+        if (code !== 0 && code !== null) {
+            console.error(`ffmpeg closed with code ${code}. Last error: ${ffmpegError}`);
+        }
+        if (!res.writableEnded) res.end();
+    });
 
     req.on('close', () => {
+        console.log('Client closed connection');
         ytDlp.kill();
         ffmpeg.kill();
     });
@@ -199,3 +273,11 @@ app.get('/feeds/:id/episodes/:episodeId/audio', async (req, res) => {
         console.log(`YouCastNode listening at http://localhost:${port}`);
     });
 })();
+
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason);
+});
