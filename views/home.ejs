@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>YouCast - YouTube to Podcast</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="py-12 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-7xl mx-auto text-center">
+                <div
+                     class="w-20 h-20 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-red-500/20">
+                    <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                    </svg>
+                </div>
+                <h1 class="text-5xl font-extrabold text-white tracking-tight mb-4">
+                    YouCast
+                </h1>
+                <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+                    Turn your favorite YouTube videos into personal podcasts. 
+                    Stream directly to your podcast app.
+                </p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 px-4 sm:px-6 lg:px-8 py-12">
+            <div class="max-w-4xl mx-auto">
+                <!-- Create New Feed -->
+                <div
+                     class="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 shadow-2xl mb-12 transform hover:scale-[1.01] transition duration-300">
+                    <h2 class="text-2xl font-bold text-white mb-6">Create New Podcast Feed</h2>
+                    <form action="/feeds/create" method="POST">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <input type="text" name="name" placeholder="Enter podcast name (e.g., My Favorite Tech Talks)"
+                                   required
+                                   class="flex-1 px-6 py-4 bg-white/10 border border-white/30 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition text-lg">
+                            <button type="submit"
+                                    class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 px-8 rounded-2xl transition duration-200 shadow-lg shadow-purple-500/25 whitespace-nowrap text-lg">
+                                Create Feed
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Existing Feeds -->
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-bold text-white mb-6 px-2">Your Podcast Feeds</h2>
+                    
+                    <% if (feeds.length > 0) { %>
+                        <div class="grid gap-6">
+                            <% feeds.forEach(feed => { %>
+                                <div
+                                     class="group bg-white/5 hover:bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-white/20 transition duration-300">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex-1 min-w-0">
+                                            <h3 class="text-xl font-bold text-white mb-1 truncate group-hover:text-pink-400 transition">
+                                                <%= feed.name %>
+                                            </h3>
+                                            <p class="text-gray-400 text-sm line-clamp-1 mb-3">
+                                                <%= feed.description || 'No description yet' %>
+                                            </p>
+                                            <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
+                                                <span class="flex items-center gap-1">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                                                    </svg>
+                                                    <%= feed.episodes.length %> episodes
+                                                </span>
+                                                <span>•</span>
+                                                <span>Updated <%= new Date(feed.updated_at).toLocaleDateString() %></span>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <a href="/feeds/<%= feed.id %>/edit"
+                                               class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition font-medium border border-white/10">
+                                                Edit
+                                            </a>
+                                            <a href="/feeds/<%= feed.id %>.rss" target="_blank"
+                                               class="px-4 py-2 bg-pink-500/20 hover:bg-pink-500/30 text-pink-400 rounded-xl transition font-medium border border-pink-500/20">
+                                                RSS Feed
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            <% }); %>
+                        </div>
+                    <% } else { %>
+                        <div class="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/20">
+                            <div class="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <p class="text-gray-400 text-lg">No feeds created yet. Start by creating one above!</p>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="py-12 border-t border-white/10">
+            <div class="max-w-7xl mx-auto px-4 text-center">
+                <p class="text-gray-500 text-sm">
+                    &copy; 2026 YouCast Node Port. Built with simplicity in mind.
+                </p>
+            </div>
+        </footer>
+    </div>
+</body>
+
+</html>
